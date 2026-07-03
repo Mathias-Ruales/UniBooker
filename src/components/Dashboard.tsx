@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import type { Room } from '../types'
+import BookingModal from './BookingModal'
 
 const SEED_ROOMS = [
   { name: 'Sala 1', capacity: 2, designation: 'Individual' as const },
@@ -26,17 +27,21 @@ function getTodayRange() {
   return { start: start.getTime(), end: end.getTime() }
 }
 
+interface MyReservation {
+  id: string
+  roomId: string
+  slotStart: number
+}
+
 interface DashboardProps {
   userId: string
 }
 
 export default function Dashboard({ userId }: DashboardProps) {
   const [rooms, setRooms] = useState<Room[]>([])
-  const [myReservations, setMyReservations] = useState<Map<string, string>>(
-    new Map()
-  )
+  const [myReservations, setMyReservations] = useState<MyReservation[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
 
   useEffect(() => {
     const roomsRef = collection(db, 'rooms')
@@ -80,81 +85,50 @@ export default function Dashboard({ userId }: DashboardProps) {
     const q = query(
       reservationsRef,
       where('userId', '==', userId),
-      where('timestamp', '>=', start),
-      where('timestamp', '<', end)
+      where('slotStart', '>=', start),
+      where('slotStart', '<', end)
     )
 
     const unsub = onSnapshot(q, (snapshot) => {
-      const map = new Map<string, string>()
+      const list: MyReservation[] = []
       snapshot.forEach((d) => {
         const data = d.data()
-        map.set(data.roomId, d.id)
+        list.push({
+          id: d.id,
+          roomId: data.roomId,
+          slotStart: data.slotStart,
+        })
       })
-      setMyReservations(map)
+      setMyReservations(list)
     })
 
     return () => unsub()
   }, [userId])
 
-  const handleReservar = async (room: Room) => {
-    setError(null)
-
-    if (myReservations.size >= 2) {
-      setError('Límite de 2 reservas diarias alcanzado')
-      return
-    }
-
-    const batch = writeBatch(db)
-
-    const reservationRef = doc(collection(db, 'reservations'))
-    batch.set(reservationRef, {
-      roomId: room.id,
-      userId,
-      timestamp: Date.now(),
-    })
-
-    const roomRef = doc(db, 'rooms', room.id)
-    batch.update(roomRef, { isAvailable: false })
-
-    await batch.commit()
-  }
-
-  const handleQuitarReserva = async (room: Room) => {
-    setError(null)
-    const reservationId = myReservations.get(room.id)
-    if (!reservationId) return
-
-    const batch = writeBatch(db)
-    batch.delete(doc(db, 'reservations', reservationId))
-    batch.update(doc(db, 'rooms', room.id), { isAvailable: true })
-    await batch.commit()
-  }
-
   const getButtonConfig = (room: Room) => {
+    const hasMyReservation = myReservations.some((r) => r.roomId === room.id)
+
     if (room.isAvailable) {
       return {
         label: 'Reservar',
-        action: () => handleReservar(room),
+        action: () => setSelectedRoom(room),
         disabled: false,
-        className:
-          'bg-blue-600 text-white hover:bg-blue-700',
+        className: 'bg-blue-600 text-white hover:bg-blue-700',
       }
     }
-    if (myReservations.has(room.id)) {
+    if (hasMyReservation) {
       return {
         label: 'Quitar Reserva',
-        action: () => handleQuitarReserva(room),
+        action: () => setSelectedRoom(room),
         disabled: false,
-        className:
-          'bg-red-500 text-white hover:bg-red-600',
+        className: 'bg-red-500 text-white hover:bg-red-600',
       }
     }
     return {
       label: 'Ocupado',
       action: () => {},
       disabled: true,
-      className:
-        'cursor-not-allowed bg-gray-200 text-gray-500',
+      className: 'cursor-not-allowed bg-gray-200 text-gray-500',
     }
   }
 
@@ -171,12 +145,6 @@ export default function Dashboard({ userId }: DashboardProps) {
       <h2 className="mb-6 text-2xl font-semibold text-gray-900">
         Salas de Estudio
       </h2>
-
-      {error && (
-        <div className="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-700">
-          {error}
-        </div>
-      )}
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {rooms.map((room) => {
@@ -213,6 +181,14 @@ export default function Dashboard({ userId }: DashboardProps) {
           )
         })}
       </div>
+
+      {selectedRoom && (
+        <BookingModal
+          room={selectedRoom}
+          userId={userId}
+          onClose={() => setSelectedRoom(null)}
+        />
+      )}
     </div>
   )
 }

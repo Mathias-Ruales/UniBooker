@@ -10,7 +10,7 @@ export interface Reservation {
   id: string
   roomId: string
   userId: string
-  timestamp: number
+  slotStart: number
 }
 
 export interface AppUser {
