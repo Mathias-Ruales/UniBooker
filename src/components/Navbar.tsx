@@ -8,7 +8,7 @@ interface NavbarProps {
 export default function Navbar({ displayName }: NavbarProps) {
   return (
     <nav className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
-      <h1 className="text-xl font-bold text-gray-900">UniBook</h1>
+      <h1 className="text-xl font-bold text-gray-900">UniBooker</h1>
       <div className="flex items-center gap-4">
         <span className="text-sm text-gray-600">{displayName}</span>
         <button
