@@ -8,6 +8,7 @@ import {
   doc,
   writeBatch,
 } from 'firebase/firestore'
+import { toast } from 'sonner'
 import { db } from '../firebase'
 import type { Room } from '../types'
 
@@ -93,6 +94,11 @@ export default function BookingModal({
 
   const handleConfirm = async () => {
     if (selectedSlot === null) return
+    if (selectedSlot <= Date.now()) {
+      setError('Esta reserva ya ha comenzado')
+      toast.error('Esta reserva ya ha comenzado')
+      return
+    }
     setError(null)
     setConfirming(true)
 
@@ -107,6 +113,7 @@ export default function BookingModal({
       const snapshot = await getDocs(q)
       if (snapshot.size >= 2) {
         setError('Límite de 2 reservas diarias alcanzado')
+        toast.error('Límite de 2 reservas diarias alcanzado')
         setConfirming(false)
         return
       }
@@ -121,9 +128,11 @@ export default function BookingModal({
       })
 
       await batch.commit()
+      toast.success('Reserva confirmada')
       onClose()
     } catch {
       setError('Error al crear la reserva')
+      toast.error('Error al crear la reserva')
       setConfirming(false)
     }
   }
@@ -134,15 +143,21 @@ export default function BookingModal({
       const batch = writeBatch(db)
       batch.delete(doc(db, 'reservations', reservationId))
       await batch.commit()
+      toast.success('Reserva cancelada')
     } catch {
       setError('Error al cancelar la reserva')
+      toast.error('Error al cancelar la reserva')
     }
   }
 
   const getSlotClass = (slotStart: number) => {
+    const isPast = slotStart <= Date.now()
     const isBooked = bookedSlots.has(slotStart)
     const isSelected = selectedSlot === slotStart
 
+    if (isPast) {
+      return 'bg-gray-100 text-gray-400 cursor-not-allowed'
+    }
     if (isBooked) {
       return 'bg-gray-300 text-gray-500 cursor-not-allowed'
     }
@@ -205,11 +220,11 @@ export default function BookingModal({
             <button
               key={slot.start}
               onClick={() => {
-                if (!bookedSlots.has(slot.start)) {
+                if (!bookedSlots.has(slot.start) && slot.start > Date.now()) {
                   setSelectedSlot(slot.start)
                 }
               }}
-              disabled={bookedSlots.has(slot.start)}
+              disabled={bookedSlots.has(slot.start) || slot.start <= Date.now()}
               className={`rounded-lg px-3 py-2 text-center text-sm font-medium transition ${getSlotClass(slot.start)}`}
             >
               {slot.label}

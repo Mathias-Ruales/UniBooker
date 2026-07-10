@@ -1,6 +1,7 @@
 import { signInWithPopup } from 'firebase/auth'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { auth, db, googleProvider } from '../firebase'
 
 export default function Auth() {
@@ -23,7 +24,7 @@ export default function Auth() {
 
       navigate('/dashboard')
     } catch {
-      // Sign-in failed or cancelled
+      toast.error('Error al iniciar sesión')
     }
   }
 

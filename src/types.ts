@@ -11,6 +11,18 @@ export interface Reservation {
   roomId: string
   userId: string
   slotStart: number
+  status?: 'checked-in'
+}
+
+export interface ReservationHistoryEntry {
+  id: string
+  roomId: string
+  userId: string
+  slotStart: number
+  outcome: 'checked-in' | 'cancelled' | 'no-show'
+  outcomeAt: number
+  roomName: string
+  userName: string
 }
 
 export interface AppUser {

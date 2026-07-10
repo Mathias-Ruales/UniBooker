@@ -1,18 +1,31 @@
 import { useEffect, useState } from 'react'
 import { onAuthStateChanged, type User } from 'firebase/auth'
+import { doc, getDoc } from 'firebase/firestore'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { auth } from './firebase'
+import { auth, db } from './firebase'
 import Auth from './components/Auth'
 import Navbar from './components/Navbar'
 import Dashboard from './components/Dashboard'
+import AdminDashboard from './components/AdminDashboard'
+
+interface AuthUser {
+  user: User
+  role: 'student' | 'admin'
+}
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null)
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u)
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      if (u) {
+        const snap = await getDoc(doc(db, 'users', u.uid))
+        const role = (snap.data()?.role as 'student' | 'admin') || 'student'
+        setAuthUser({ user: u, role })
+      } else {
+        setAuthUser(null)
+      }
       setLoading(false)
     })
     return unsub
@@ -30,16 +43,39 @@ export default function App() {
     <Routes>
       <Route
         path="/login"
-        element={user ? <Navigate to="/dashboard" replace /> : <Auth />}
+        element={
+          authUser ? <Navigate to="/dashboard" replace /> : <Auth />
+        }
       />
       <Route
         path="/dashboard"
         element={
-          user ? (
+          authUser ? (
             <div className="min-h-screen bg-gray-50">
-              <Navbar displayName={user.displayName} />
-              <Dashboard userId={user.uid} />
+              <Navbar
+                displayName={authUser.user.displayName}
+                role={authUser.role}
+              />
+              <Dashboard userId={authUser.user.uid} />
             </div>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          authUser?.role === 'admin' ? (
+            <div className="min-h-screen bg-gray-50">
+              <Navbar
+                displayName={authUser.user.displayName}
+                role={authUser.role}
+              />
+              <AdminDashboard />
+            </div>
+          ) : authUser ? (
+            <Navigate to="/dashboard" replace />
           ) : (
             <Navigate to="/login" replace />
           )
