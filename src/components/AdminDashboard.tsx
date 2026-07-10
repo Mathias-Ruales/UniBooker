@@ -11,6 +11,7 @@ import {
 import { toast } from 'sonner'
 import { db } from '../firebase'
 import type { ReservationHistoryEntry } from '../types'
+import ConfirmModal from './ConfirmModal'
 
 function getTodayRange() {
   const now = new Date()
@@ -41,6 +42,10 @@ export default function AdminDashboard() {
   const [historyRows, setHistoryRows] = useState<ReservationHistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('active')
+  const [confirmModal, setConfirmModal] = useState<{
+    type: 'check-in' | 'cancel'
+    row: ActiveRow
+  } | null>(null)
 
   const roomMapRef = useRef<Map<string, string>>(new Map())
   const userMapRef = useRef<Map<string, string>>(new Map())
@@ -215,23 +220,15 @@ export default function AdminDashboard() {
     return () => clearTimeout(timeoutId)
   }, [])
 
-  const handleCheckIn = async (row: ActiveRow) => {
-    if (!window.confirm(`¿Confirmar asistencia de ${row.userName} para ${formatSlot(row.slotStart)}?`)) return
+  const handleConfirmAction = async () => {
+    if (!confirmModal) return
+    const { type, row } = confirmModal
+    setConfirmModal(null)
     try {
-      await moveToHistory(row.id, row.roomId, row.userId, row.slotStart, 'checked-in')
-      toast.success('Asistencia registrada')
+      await moveToHistory(row.id, row.roomId, row.userId, row.slotStart, type === 'check-in' ? 'checked-in' : 'cancelled')
+      toast.success(type === 'check-in' ? 'Asistencia registrada' : 'Reserva cancelada')
     } catch {
-      toast.error('Error al registrar asistencia')
-    }
-  }
-
-  const handleCancel = async (row: ActiveRow) => {
-    if (!window.confirm(`¿Cancelar reserva de ${row.userName} para ${formatSlot(row.slotStart)}?`)) return
-    try {
-      await moveToHistory(row.id, row.roomId, row.userId, row.slotStart, 'cancelled')
-      toast.success('Reserva cancelada')
-    } catch {
-      toast.error('Error al cancelar la reserva')
+      toast.error('Error al procesar la acción')
     }
   }
 
@@ -244,7 +241,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="p-6">
+    <div className="mx-auto max-w-6xl px-6 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-2xl font-semibold text-gray-900">
           Panel de Administración
@@ -299,7 +296,7 @@ export default function AdminDashboard() {
                   {activeRows.map((row) => (
                     <tr
                       key={row.id}
-                      className="border-b border-gray-100 last:border-0"
+                      className="border-b border-gray-100 last:border-0 hover:bg-gray-50"
                     >
                       <td className="px-4 py-3 text-gray-900">{row.roomName}</td>
                       <td className="px-4 py-3 text-gray-700">{row.userName}</td>
@@ -308,13 +305,13 @@ export default function AdminDashboard() {
                       </td>
                       <td className="flex gap-2 px-4 py-3">
                         <button
-                          onClick={() => handleCheckIn(row)}
+                          onClick={() => setConfirmModal({ type: 'check-in', row })}
                           className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 transition"
                         >
                           Asistió
                         </button>
                         <button
-                          onClick={() => handleCancel(row)}
+                          onClick={() => setConfirmModal({ type: 'cancel', row })}
                           className="rounded-lg bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600 transition"
                         >
                           Cancelar
@@ -348,7 +345,7 @@ export default function AdminDashboard() {
                   {historyRows.map((row) => (
                     <tr
                       key={row.id}
-                      className="border-b border-gray-100 bg-gray-50 last:border-0"
+                      className="border-b border-gray-100 bg-gray-50 last:border-0 hover:bg-gray-100"
                     >
                       <td className="px-4 py-3 text-gray-400">{row.roomName}</td>
                       <td className="px-4 py-3 text-gray-400">{row.userName}</td>
@@ -379,6 +376,19 @@ export default function AdminDashboard() {
             </div>
           )}
         </>
+      )}
+
+      {confirmModal && (
+        <ConfirmModal
+          message={
+            confirmModal.type === 'check-in'
+              ? `¿Confirmar asistencia de ${confirmModal.row.userName} para ${formatSlot(confirmModal.row.slotStart)}?`
+              : `¿Cancelar reserva de ${confirmModal.row.userName} para ${formatSlot(confirmModal.row.slotStart)}?`
+          }
+          confirmLabel={confirmModal.type === 'check-in' ? 'Asistió' : 'Cancelar'}
+          onConfirm={handleConfirmAction}
+          onClose={() => setConfirmModal(null)}
+        />
       )}
     </div>
   )

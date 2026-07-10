@@ -141,10 +141,15 @@ export default function Dashboard({ userId }: DashboardProps) {
   }
 
   return (
-    <div className="p-6">
-      <h2 className="mb-6 text-2xl font-semibold text-gray-900">
-        Salas de Estudio
-      </h2>
+    <div className="mx-auto max-w-6xl px-6 py-8">
+      <div className="mb-6 flex items-center justify-between">
+        <h2 className="text-2xl font-semibold text-gray-900">
+          Salas de Estudio
+        </h2>
+        <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+          Reservas hoy: {myReservations.length}/2
+        </span>
+      </div>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {rooms.map((room) => {
